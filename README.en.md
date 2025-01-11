@@ -1,98 +1,187 @@
-## Start Developing
+# Pastebin-ui
 
-1. Install wrangler-cli
+This is a lightweight content relay station project based on Cloudflare Workers and KV, ideal for developers who need a simple and efficient solution for content storage. It does not rely on R2 buckets, is easy to deploy, and is suitable for small-scale projects.
 
-```bash
-npm i @cloudflare/wrangler -g
-```
+This project is extracted from a historical version of the original project as I found it useful. It is open-sourced under the original project's license. If there are any infringement issues, please contact me for removal.
 
-Log in to your Cloudflare account according to the documentation:
+Original project repository: [Pastebin Worker - Historical Version](https://github.com/xiadd/pastebin-worker)
 
-```bash
-wrangler login
-```
+## Deployment Documentation
 
-After executing the above command, a page will open in the browser, redirecting to the Cloudflare login page. Click to authorize login, and it will redirect to another page. Then input `wrangler whoami` in the terminal. If it displays your username, it means you have successfully logged in.
+### 1. Manual Deployment (Recommended)
 
-2. Install Dependencies
+#### Obtain Cloudflare API Token
 
-```bash
-# Install backend dependencies
-yarn install
+1. Log in to [Cloudflare Dashboard](https://dash.cloudflare.com/).
+2. Click on your profile icon in the top-right corner and select **My Profile**.
+3. Go to the **API Tokens** page.
+4. Click `Create Token` and choose the `Edit Cloudflare Workers` template.
+5. Configure and create the token, then copy the generated API Token.
 
-# Install frontend dependencies
-cd static
-yarn install
-```
+![Obtain API Token](./docs/get_api.png)
 
-3. Create kv namespace in Cloudflare
+#### Create KV Storage
 
-![image](https://as.al/file/zLTJTR)
+1. Log in to [Cloudflare Dashboard](https://dash.cloudflare.com/).
+2. Click on **Storage & Database** in the left menu and select `KV`.
+3. Create two `KV` namespaces named `PB` and `PBIMGS`.
+4. Save the `IDs` for later use.
 
-We have created two kv namespaces here, one for storing files and the other for storing text, and they are named `PBIMG` and `PB` respectively. It doesn't matter what names are given, the important thing is to remember the id, which will be used later.
+![Create KV](./docs/create_kv.png)
 
-4. Modify wrangler.toml
+#### Set Secrets in GitHub Actions
+
+1. Open your project repository on GitHub.
+2. Navigate to **Settings > Secrets and variables > Actions**.
+3. Click `New repository secret`.
+4. Set the name as `CF_API_TOKEN` and the value as your generated API Token.
+
+![Set GitHub Secret](./docs/set_secret.png)
+
+#### Configure Environment Variables
+
+1. Set the frontend environment variables in `./static/.env`:
+   ```env
+   VITE_API_BASE_URL=<Your Cloudflare Worker Deployment URL>
+   ```
+2. Ensure this URL is added to Cloudflare DNS, as it will be automatically resolved.
+
+![Set Environment Variables](./docs/set_env.png)
+
+#### Modify Worker Configuration File
+
+1. Update the following variables in `./wrangler.toml`:
+
+![Modify Worker Config](./docs/set_worker_env.png)
+
+#### Deploy to Cloudflare
+
+- Every push to the `main` branch will automatically trigger the deployment workflow via GitHub Actions.
+- To manually trigger a deployment:
+  1. Open the GitHub Actions page.
+  2. Find the appropriate Action and click `Run workflow`.
+
+![Run Deployment Action](./docs/run_action.png)
+
+### 2. Local Development Deployment (DEV)
+
+#### Configure Cloudflare Workers KV Namespace
+
+1. Log in to [Cloudflare Dashboard](https://dash.cloudflare.com/).
+2. Create two KV namespaces:
+   - One for storing files (named `PBIMG`).
+   - One for storing text (named `PB`).
+3. Save their `IDs` for later use.
+
+#### Update `wrangler.toml`
 
 ```toml
-name= "pastebin-worker"
+name = "pastebin-worker"
 compatibility_date = "2023-11-28"
-account_id= "<account_id>" # Replace this with your own account_id
+account_id = "<Your account_id>"
 main = "src/index.ts"
 workers_dev = false
 
 vars = { ENVIRONMENT = "production" }
-route = { pattern = "<your domain>", custom_domain = true }
+route = { pattern = "<Your Domain>", custom_domain = true }
 
 kv_namespaces = [
   { binding = "PB", id = "<PB kv id>" },
-  { binding = "PBIMGS", id ="<PB file id>" }
+  { binding = "PBIMGS", id = "<PBIMG kv id>" }
 ]
 
 [site]
 bucket = "./static/dist"
 ```
 
-`account_id`, `route`, `kv_namespaces` should be modified according to your own situation. We are using two kvs here, one for storing files and the other for storing text.
+- `account_id` can be found in your Cloudflare Dashboard profile.
+- If you are not using a custom domain, comment out the `route` line.
 
-`account_id` can be found in the Cloudflare dashboard. `route` is the route of your worker (i.e., the custom domain), and `kv_namespaces` is the id of the kv you created.
+### Start the Service
 
-5. Development
+#### Start Backend
 
 ```bash
-# Start the backend
+npm i @cloudflare/wrangler -g
+wrangler login
 wrangler dev
+```
 
-# Start the frontend
+#### Start Frontend
+
+```bash
 cd static
+yarn install
 yarn dev
 ```
 
-After the server is started, the backend address is `http://localhost:8787`, and the front-end address is `http://localhost:5173`. If you want to test the frontend package, directly execute `yarn build` in the static directory, and visit `http://localhost:8787`.
+After starting:
+- Backend address: `http://localhost:8787`
+- Frontend address: `http://localhost:5173`
 
-# Deploy
+#### Test Frontend Build
 
-Modify `.env.production` in the static directory, and set the environment variable to the domain name you configured above.
+Run the following in the `static` directory:
 
-```env
-VITE_API_URL= <your domain>
+```bash
+yarn build
 ```
 
-Get the api key for your Cloudflare account, then set it as the secret for GitHub action, named `CF_API_TOKEN`. This way, whenever you push code to the main branch, it will automatically deploy to Cloudflare.
+Access `http://localhost:8787` to view the built frontend.
 
-### Method to get the API Token:
+## Development Documentation
 
-![image](https://as.al/file/wRVEmh)
+### Environment Initialization
 
-Then click `Create Token`:
+1. Install Wrangler CLI:
 
-![image](https://as.al/file/5a927R)
+   ```bash
+   npm i @cloudflare/wrangler -g
+   ```
 
-Select the worker template and create it to get the api token.
+2. Log in to your Cloudflare account:
 
-![image](https://as.al/file/0PhErY)
+   ```bash
+   wrangler login
+   ```
 
-### Set the secret in the github action:
+3. Verify login:
 
-![image](https://as.al/file/HY97Ka)
+   ```bash
+   wrangler whoami
+   ```
 
-Set your api token here.
+   Your username should appear if the login is successful.
+
+### Install Dependencies
+
+#### Backend Dependencies
+
+```bash
+yarn install
+```
+
+#### Frontend Dependencies
+
+```bash
+cd static
+yarn install
+```
+
+### Configuration Files
+
+Refer to [Deployment Documentation](#configure-cloudflare-workers-kv-namespace) for setting up `wrangler.toml` and `.env` files.
+
+### Start Development Environment
+
+Follow the instructions in [Start the Service](#start-the-service) to run the backend and frontend.
+
+### Testing
+
+- Access `http://localhost:5173` locally to test the frontend.
+- Backend API address: `http://localhost:8787`.
+
+### Deploy to Cloudflare
+
+Refer to [Deployment Documentation](#deployment-documentation).
+

@@ -1,100 +1,186 @@
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/xiadd/pastebin-worker)
+# Pastebin-ui
 
-## 开始开发
+这是一个基于 Cloudflare Workers 和 KV 的轻量级内容中转站项目，适合需要简洁、高效解决内容存储需求的开发者使用。无需依赖 R2 存储桶，部署方便，适用于小型项目。
 
-1. 安装 wrangler-cli
+该项目是原项目的历史版本，由于我个人认为还有需要，所以单独提取出来了，供大家使用，本人不拥有该项目，开源协议集成原项目，如有侵犯请联系删除。
 
-```bash
-npm i @cloudflare/wrangler -g
-```
+原项目仓库：[Pastebin Worker - 历史版本](https://github.com/xiadd/pastebin-worker)
 
-根据文档登录 cloudflare 账号：
+## 部署文档
 
-```bash
-wrangler login
-```
+### 1. 手动部署(推荐)
 
-执行上面的命令后，会在浏览器打开一个页面，跳转到 cloudflare 的登录页面，然后点击授权登录，然后会跳转到一个页面，然后在终端输入 `wrangler whoami`，如果显示你的用户名，说明登录成功了。
+#### 获取 Cloudflare API Token
 
-2. 安装依赖
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)。
+2. 点击右上角的个人头像，选择 **My Profile**。
+3. 进入 **API Tokens** 页面。
+4. 点击 `Create Token`，选择 `Edit Cloudflare Workers` 模板。
+5. 配置并创建后，复制生成的 API Token。
 
-```bash
-# 安装后端依赖
-yarn install
+![获取 API Token](./docs/get_api.png)
 
-# 安装前端依赖
-cd static
-yarn install
-```
+#### 创建 KV 存储
 
-3. 在 cloudflare 里创建 kv namespace
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)。
+2. 点击左侧列表中的存储和数据库，选择 `KV`。
+3. 创建两个`KV`，名称分别为：`PB`，`PBIMGS`。
+4. 保存好`ID`，后期会用到。
+   
+![创建KV](/docs/create_kv.png)
 
-![image](https://as.al/file/zLTJTR)
+#### 在 GitHub Actions 中设置 Secret
 
-我们这里创建了两个 kv，一个用来存储文件，一个用来存储文字，然后分别取名为 `PBIMG` 和 `PB`，其实名字无所谓，重点是要记住 id，后面会用到
+1. 打开项目的 GitHub 仓库。
+2. 进入 **Settings > Secrets and variables > Actions**。
+3. 点击 `New repository secret`。
+4. 名称设置为 `CF_API_TOKEN`，值为刚刚生成的 API Token。
 
-4. 修改 wrangler.toml
+![设置 GitHub Secret](./docs/set_secret.png)
+
+#### 修改环境变量
+
+1. 在 `./static/.env` 文件中设置前端页面的环境变量。
+   ```env
+   VITE_API_BASE_URL=<你的 Cloudflare Worker 部署地址>
+   ```
+2. 确保该地址已在 Cloudflare 的 DNS 中添加，这个地址会自动添加到解析中。
+
+![设置环境变量](./docs/set_env.png)
+
+#### 修改 worker 配置文件
+
+1. 在 `./wrangler.toml` 文件中修改以下变量：
+
+![修改worker配置](./docs//set_worker_env.png)
+
+#### 部署到 Cloudflare
+
+- 每次将代码 push 到 `main` 分支后，GitHub Actions 会自动触发部署任务。
+- 若需要手动运行部署任务：
+  1. 打开 GitHub Actions 页面。
+  2. 找到对应的 Action，点击 `Run workflow`。
+
+![运行部署 Action](./docs/run_action.png)
+
+### 2. 本地开发部署(DEV)
+
+#### 配置 Cloudflare Workers KV Namespace
+
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)。
+2. 创建两个 KV Namespace：
+   - 一个用于存储文件（命名为 `PBIMG`）。
+   - 一个用于存储文字（命名为 `PB`）。
+3. 记录它们的 `ID`，后续需要使用。
+
+#### 修改 `wrangler.toml`
 
 ```toml
-name= "pastebin-worker"
+name = "pastebin-worker"
 compatibility_date = "2023-11-28"
-account_id= "<account_id>" # 这里改成你自己的 account_id
+account_id = "<你的 account_id>"
 main = "src/index.ts"
 workers_dev = false
 
 vars = { ENVIRONMENT = "production" }
-route = { pattern = "<your domain>", custom_domain = true }
+route = { pattern = "<你的域名>", custom_domain = true }
 
 kv_namespaces = [
   { binding = "PB", id = "<PB kv id>" },
-  { binding = "PBIMGS", id ="<PB file id>" }
+  { binding = "PBIMGS", id = "<PBIMG kv id>" }
 ]
 
 [site]
 bucket = "./static/dist"
 ```
 
-其中 `account_id`，`route`, `kv_namespaces` 需要根据自己的情况修改，我们这里用到了两个 kv，一个存储文件，一个存储文字。如果不需要自定义域名，注释掉 `route` 这行即可。
+- `account_id` 可在 Cloudflare Dashboard 的个人资料中找到。
+- 如果不使用自定义域名，注释掉 `route` 即可。
 
-`account_id` 可以在 cloudflare 的 dashboard 中找到, `route` 是你的 worker 的路由（也就是自定义域名），`kv_namespaces` 是你创建的 kv 的 id
+### 启动服务
 
-5. 开发
+#### 后端启动
 
 ```bash
-# 启动后端
+npm i @cloudflare/wrangler -g
+wrangler login
 wrangler dev
+```
 
-# 启动前端
+#### 前端启动
+
+```bash
 cd static
+yarn install
 yarn dev
 ```
 
-服务器启动后，后端的地址是 `http://localhost:8787`，前端的地址是 `http://localhost:5173`，如果想测试前端打包后的情况，直接在 static 目录执行 `yarn build`，然后访问 `http://localhost:8787` 就可以了
+启动完成后：
+- 后端地址为 `http://localhost:8787`。
+- 前端地址为 `http://localhost:5173`。
 
-# 部署
+#### 测试前端打包效果
 
-## 手动部署
+在 `static` 目录下运行：
 
-获取你的 cloudflare 账号的 api key，然后设置为 github aciton 的 secret，名字为`CF_API_TOKEN`，这样每次 push 代码到 main 分支，就会自动部署到 cloudflare
+```bash
+yarn build
+```
 
-### 获取 API Token 的方法：
+访问 `http://localhost:8787` 查看打包后的前端页面效果。
 
-![image](https://as.al/file/wRVEmh)
+## 开发文档
 
-然后点击 `Create Token`:
+### 环境初始化
 
-![image](https://as.al/file/5a927R)
+1. 安装 Wrangler CLI：
 
-选择 worker 的模版创建成功即可获取 api token
+   ```bash
+   npm i @cloudflare/wrangler -g
+   ```
 
-![image](https://as.al/file/0PhErY)
+2. 登录 Cloudflare 账号：
 
-### 在 github action 里设置 secret
+   ```bash
+   wrangler login
+   ```
 
-![image](https://as.al/file/HY97Ka)
+3. 验证登录：
 
-在这里设置你的 api token，而后每次 push 代码到 main 分支，就会自动部署到 cloudflare
+   ```bash
+   wrangler whoami
+   ```
 
-## 自动部署
+   显示用户名即表示登录成功。
 
-点击上面的 `Deploy with Workers` 按钮，然后根据提示操作即可。
+### 安装依赖
+
+#### 后端依赖
+
+```bash
+yarn install
+```
+
+#### 前端依赖
+
+```bash
+cd static
+yarn install
+```
+
+### 配置文件
+
+参考 [部署文档](#配置-cloudflare-workers-kv-namespace) 中的 `wrangler.toml` 和 `.env` 设置。
+
+### 启动开发环境
+
+按照 [启动服务](#启动服务) 中的说明运行后端和前端。
+
+### 测试
+
+- 在本地访问 `http://localhost:5173` 测试前端。
+- 测试后端接口地址为 `http://localhost:8787`。
+
+### 部署到 Cloudflare
+
+详见 [部署文档](#部署文档)。
