@@ -5,7 +5,7 @@ main = "src/index.ts"
 workers_dev = false
 
 vars = { ENVIRONMENT = "production" }
-route = { pattern = "paste.lius.me", custom_domain = true }
+route = { pattern = "free.fcic.cc", custom_domain = true }
 
 kv_namespaces = [
   { binding = "PB", id = "2e337f14bbb940e1a09947374773fb19" },
